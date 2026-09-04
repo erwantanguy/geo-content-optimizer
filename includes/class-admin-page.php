@@ -205,9 +205,18 @@ class GCO_Admin_Page {
                                 <span class="gco-score-grade"><?php echo esc_html($analysis['grade']); ?></span>
                             </div>
                             <div class="gco-subscores-detail">
-                                <?php foreach ($analysis['subscores'] as $key => $value): ?>
+                                <?php 
+                                $subscore_labels = [
+                                    'citability' => __('Citabilité', 'geo-content-optimizer'),
+                                    'clarity' => __('Clarté', 'geo-content-optimizer'),
+                                    'structure' => __('Structure', 'geo-content-optimizer'),
+                                    'factuality' => __('Factualité', 'geo-content-optimizer'),
+                                    'eeat' => __('EEAT', 'geo-content-optimizer'),
+                                ];
+                                foreach ($analysis['subscores'] as $key => $value): 
+                                ?>
                                     <div class="gco-subscore-item">
-                                        <span class="gco-subscore-name"><?php echo esc_html(ucfirst($key)); ?></span>
+                                        <span class="gco-subscore-name"><?php echo esc_html($subscore_labels[$key] ?? ucfirst($key)); ?></span>
                                         <div class="gco-progress-large">
                                             <div class="gco-progress-bar <?php echo $this->get_score_class($value); ?>" 
                                                  style="width: <?php echo esc_attr($value); ?>%"></div>
@@ -289,6 +298,23 @@ class GCO_Admin_Page {
                                 <dd><?php echo esc_html(round($analysis['metrics']['avg_sentence_length'], 1)); ?></dd>
                             </dl>
                         </div>
+                        
+                        <?php if (!empty($analysis['ymyl']['is_ymyl'])): ?>
+                        <div class="gco-sidebar-card gco-ymyl-alert">
+                            <h3><?php esc_html_e('⚠️ Sujet YMYL', 'geo-content-optimizer'); ?></h3>
+                            <p>
+                                <?php 
+                                printf(
+                                    esc_html__('Catégories détectées : %s', 'geo-content-optimizer'),
+                                    esc_html(implode(', ', $analysis['ymyl']['categories']))
+                                );
+                                ?>
+                            </p>
+                            <p class="description">
+                                <?php esc_html_e('Renforcez l\'auteur, les sources et la date de mise à jour pour ce type de contenu.', 'geo-content-optimizer'); ?>
+                            </p>
+                        </div>
+                        <?php endif; ?>
                         
                         <div class="gco-sidebar-card">
                             <h3><?php esc_html_e('Actions', 'geo-content-optimizer'); ?></h3>

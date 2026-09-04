@@ -62,12 +62,15 @@ class GCO_Analyzer {
         $clarity = $this->scorer->calculate_clarity($metrics);
         $structure = $this->scorer->calculate_structure($content, $paragraphs);
         $factuality = $this->scorer->calculate_factuality($content);
+        $eeat = $this->scorer->calculate_eeat($content, $title);
+        $ymyl = $this->scorer->detect_ymyl_topic($content, $title);
         
         $base_score = round(
-            ($citability * 0.35) +
-            ($clarity * 0.25) +
-            ($structure * 0.20) +
-            ($factuality * 0.20)
+            ($citability * 0.30) +
+            ($clarity * 0.20) +
+            ($structure * 0.15) +
+            ($factuality * 0.15) +
+            ($eeat * 0.20)
         );
         
         $geo_blocks_bonus = 0;
@@ -84,6 +87,9 @@ class GCO_Analyzer {
             'clarity' => $clarity,
             'structure' => $structure,
             'factuality' => $factuality,
+            'eeat' => $eeat,
+            'ymyl' => $ymyl,
+            'has_direct_answer' => $this->scorer->has_direct_answer($content),
             'metrics' => $metrics,
             'sentence_scores' => $sentence_scores,
         ]);
@@ -108,7 +114,9 @@ class GCO_Analyzer {
                 'clarity' => $clarity,
                 'structure' => $structure,
                 'factuality' => $factuality,
+                'eeat' => $eeat,
             ],
+            'ymyl' => $ymyl,
             'geo_blocks_bonus' => $geo_blocks_bonus,
             'geo_blocks' => $geo_blocks_summary,
             'metrics' => $metrics,
@@ -147,6 +155,12 @@ class GCO_Analyzer {
                 'clarity' => 0,
                 'structure' => 0,
                 'factuality' => 0,
+                'eeat' => 0,
+            ],
+            'ymyl' => [
+                'score' => 0,
+                'categories' => [],
+                'is_ymyl' => false,
             ],
             'metrics' => [
                 'total_words' => 0,

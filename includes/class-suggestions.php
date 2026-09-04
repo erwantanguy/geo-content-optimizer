@@ -14,6 +14,7 @@ class GCO_Suggestions {
         $suggestions = array_merge($suggestions, $this->check_structure($content, $analysis));
         $suggestions = array_merge($suggestions, $this->check_factuality($content, $analysis));
         $suggestions = array_merge($suggestions, $this->check_weak_sentences($analysis));
+        $suggestions = array_merge($suggestions, $this->check_eeat($content, $title, $analysis));
         
         usort($suggestions, function($a, $b) {
             $priority_order = ['high' => 0, 'medium' => 1, 'low' => 2];
@@ -244,6 +245,95 @@ class GCO_Suggestions {
             }
         }
         
+        return $suggestions;
+    }
+
+    private function check_eeat($content, $title, $analysis) {
+        $suggestions = [];
+        $eeat = $analysis['eeat'] ?? 0;
+        $ymyl = $analysis['ymyl'] ?? ['is_ymyl' => false, 'categories' => []];
+        $metrics = $analysis['metrics'] ?? [];
+        $text = mb_strtolower($content, 'UTF-8');
+
+        // Alerte YMYL
+        if (!empty($ymyl['is_ymyl'])) {
+            $categories = implode(', ', $ymyl['categories']);
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => 'high',
+                'message' => sprintf(__('Contenu YMYL détecté (%s).', 'geo-content-optimizer'), $categories),
+                'detail' => __('Ce sujet touche à l\'argent, la santé, la justice ou la sécurité. Renforcez impérativement l\'auteur, les sources et la date de mise à jour.', 'geo-content-optimizer'),
+            ];
+        }
+
+        // Score EEAT faible
+        if ($eeat < 40) {
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => 'high',
+                'message' => __('Score EEAT très faible.', 'geo-content-optimizer'),
+                'detail' => __('Ajoutez un auteur identifié, une date de mise à jour, des sources crédibles et une réponse directe en début de contenu.', 'geo-content-optimizer'),
+            ];
+        } elseif ($eeat < 60) {
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => 'medium',
+                'message' => __('Améliorez les signaux EEAT.', 'geo-content-optimizer'),
+                'detail' => __('Les IA et Google privilégient les contenus avec auteur, sources et fraîcheur clairement indiquées.', 'geo-content-optimizer'),
+            ];
+        }
+
+        // Réponse directe manquante
+        if (empty($analysis['has_direct_answer']) && !empty($ymyl['is_ymyl'])) {
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => 'medium',
+                'message' => __('Ajoutez une réponse directe en introduction.', 'geo-content-optimizer'),
+                'detail' => __('Pour les sujets YMYL et les réponses IA, une réponse franche et concise dès le début augmente la confiance et la citabilité.', 'geo-content-optimizer'),
+            ];
+        }
+
+        // Auteur manquant
+        $author_signals = ['auteur', 'rédigé par', 'écrit par', 'par ', 'expert', 'spécialiste'];
+        $has_author = false;
+        foreach ($author_signals as $signal) {
+            if (mb_strpos($text, $signal) !== false) {
+                $has_author = true;
+                break;
+            }
+        }
+        if (!$has_author && $metrics['total_words'] > 300) {
+            $priority = !empty($ymyl['is_ymyl']) ? 'high' : 'low';
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => $priority,
+                'message' => __('Identifiez l\'auteur ou l\'expert du contenu.', 'geo-content-optimizer'),
+                'detail' => __('Un contenu signé renforce l\'Expertise et l\'Autorité, surtout pour les sujets sensibles.', 'geo-content-optimizer'),
+            ];
+        }
+
+        // Sources manquantes
+        if (!preg_match('/(selon|d\'après|source|étude|rapport|recherche)/i', $content) && $metrics['total_words'] > 300) {
+            $priority = !empty($ymyl['is_ymyl']) ? 'high' : 'medium';
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => $priority,
+                'message' => __('Citez des sources crédibles.', 'geo-content-optimizer'),
+                'detail' => __('Les affirmations sourcées améliorent la confiance et les chances d\'être cité par les IA.', 'geo-content-optimizer'),
+            ];
+        }
+
+        // Fraîcheur non indiquée
+        if (!preg_match('/(mis à jour|actualisé|publié le|dernière mise à jour|updated|reviewed)/i', $content) && $metrics['total_words'] > 300) {
+            $priority = !empty($ymyl['is_ymyl']) ? 'medium' : 'low';
+            $suggestions[] = [
+                'type' => 'eeat',
+                'priority' => $priority,
+                'message' => __('Indiquez la date de mise à jour.', 'geo-content-optimizer'),
+                'detail' => __('Google et les IA valorisent les contenus frais, particulièrement sur les sujets sensibles.', 'geo-content-optimizer'),
+            ];
+        }
+
         return $suggestions;
     }
 }

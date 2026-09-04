@@ -360,4 +360,174 @@ class GCO_Citability_Scorer {
 
         return $summary;
     }
+
+    /**
+     * Détecte si le contenu touche à un sujet YMYL (Your Money Your Life).
+     *
+     * @param string $content
+     * @param string $title
+     * @return array ['score' => int, 'categories' => string[]]
+     */
+    public function detect_ymyl_topic($content, $title = '') {
+        $text = mb_strtolower($content . ' ' . $title, 'UTF-8');
+
+        $categories = [
+            'health' => [
+                'keywords' => ['santé', 'maladie', 'symptôme', 'traitement', 'médicament', 'docteur', 'médecin', 'hôpital', 'clinique', 'diagnostic', 'thérapie', 'vaccin', 'nutrition', 'régime', 'bien-être', 'mental', 'psychologie', 'dépression', 'anxiété', 'cancer', 'diabète', 'allergie', 'douleur', 'grossesse', 'bébé', 'enfant malade'],
+                'label' => 'Santé',
+            ],
+            'finance' => [
+                'keywords' => ['argent', 'investissement', 'banque', 'crédit', 'prêt', 'assurance', 'impôt', 'fiscalité', 'retraite', 'bourse', 'crypto', 'bitcoin', 'epargne', 'compte bancaire', 'hypothèque', 'immobilier financier', 'placements', 'revenus', 'dettes'],
+                'label' => 'Finance',
+            ],
+            'legal' => [
+                'keywords' => ['avocat', 'notaire', 'juge', 'tribunal', 'justice', 'loi', 'règlement', 'droit', 'contrat', 'procès', 'infraction', 'pénal', 'civil', 'légal', 'juridique', 'succession', 'divorce', 'custodie', 'plainte'],
+                'label' => 'Juridique',
+            ],
+            'safety' => [
+                'keywords' => ['sécurité', 'danger', 'risque', 'accident', 'protection', 'prévention', 'incendie', 'secours', 'urgence', 'sauvetage', 'equipement de protection', 'ehpad', 'handicap', 'accessibilité', 'sécurité routière'],
+                'label' => 'Sécurité',
+            ],
+        ];
+
+        $detected = [];
+        $score = 0;
+
+        foreach ($categories as $key => $category) {
+            $matches = 0;
+            foreach ($category['keywords'] as $keyword) {
+                if (mb_strpos($text, $keyword) !== false) {
+                    $matches++;
+                }
+            }
+
+            if ($matches >= 2) {
+                $detected[] = $category['label'];
+                $score += 30;
+            } elseif ($matches === 1) {
+                $score += 10;
+            }
+        }
+
+        return [
+            'score' => min(100, $score),
+            'categories' => $detected,
+            'is_ymyl' => $score >= 30,
+        ];
+    }
+
+    /**
+     * Évalue le score EEAT (Experience, Expertise, Authoritativeness, Trustworthiness).
+     *
+     * @param string $content
+     * @param string $title
+     * @return int
+     */
+    public function calculate_eeat($content, $title = '') {
+        $score = 40;
+        $text = mb_strtolower($content, 'UTF-8');
+        $first_part = mb_substr($text, 0, 600);
+
+        // Réponse directe en début de contenu
+        if ($this->has_direct_answer($content)) {
+            $score += 15;
+        }
+
+        // Présence d'auteur / expertise
+        $author_signals = [
+            'auteur', 'rédigé par', 'écrit par', 'par ', 'expert', 'spécialiste',
+            'docteur', 'dr ', 'médecin', 'avocat', 'notaire', 'ingénieur',
+            'certifié', 'diplômé', 'expérience de ', 'depuis ', 'années d\'expérience',
+        ];
+        $has_author = false;
+        foreach ($author_signals as $signal) {
+            if (mb_strpos($text, $signal) !== false) {
+                $has_author = true;
+                break;
+            }
+        }
+        if ($has_author) {
+            $score += 15;
+        }
+
+        // Sources externes / citations
+        if (preg_match('/https?:\/\//', $content)) {
+            $score += 10;
+        }
+        if (preg_match('/(selon|d\'après|source|étude|rapport|recherche)/i', $content)) {
+            $score += 10;
+        }
+
+        // Fraîcheur / date de mise à jour
+        if (preg_match('/(mis à jour|actualisé|publié le|dernière mise à jour|updated|reviewed)/i', $content)) {
+            $score += 10;
+        }
+        if (preg_match('/\b20[1-9][0-9]\b/', $content)) {
+            $score += 5;
+        }
+
+        // Avis d'expert / témoignage
+        $expert_signals = [
+            'témoignage', 'avis d\'expert', 'expert recommande', 'selon les experts',
+            'étude clinique', 'preuve', 'démontré', 'validé', 'certifié',
+        ];
+        foreach ($expert_signals as $signal) {
+            if (mb_strpos($text, $signal) !== false) {
+                $score += 5;
+                break;
+            }
+        }
+
+        // Contact / transparence
+        $trust_signals = [
+            'contact', 'à propos', 'mentions légales', 'politique de confidentialité',
+            'qui sommes-nous', 'notre équipe',
+        ];
+        foreach ($trust_signals as $signal) {
+            if (mb_strpos($text, $signal) !== false) {
+                $score += 5;
+                break;
+            }
+        }
+
+        return max(0, min(100, $score));
+    }
+
+    /**
+     * Détecte si le contenu commence par une réponse directe.
+     *
+     * @param string $content
+     * @return bool
+     */
+    public function has_direct_answer($content) {
+        $text = wp_strip_all_tags($content);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        $first_part = mb_substr(mb_strtolower($text, 'UTF-8'), 0, 400);
+
+        // Phrases indiquant une réponse directe
+        $patterns = [
+            '/^(oui|non|environ|généralement|c\'est|il s\'agit|il est)/u',
+            '/^\w+\s+(est|sont|peut|peuvent|doit|doivent|vaut|valent|coûte|coûtent)/u',
+            '/^la réponse est/u',
+            '/^pour résumer/u',
+            '/^en quelques mots/u',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $first_part)) {
+                return true;
+            }
+        }
+
+        // Première phrase courte et factuelle (moins de 30 mots, contient un chiffre ou une date)
+        if (preg_match('/^[^.!?]{10,150}[.!?]/u', $first_part, $match)) {
+            $first_sentence = $match[0];
+            $word_count = str_word_count($first_sentence, 0, 'àâäéèêëïîôùûüÿçœæ');
+            if ($word_count <= 30 && (preg_match('/\d/', $first_sentence) || preg_match('/\b20[1-9][0-9]\b/', $first_sentence))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

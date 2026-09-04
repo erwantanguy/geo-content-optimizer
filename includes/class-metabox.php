@@ -79,6 +79,28 @@ class GCO_Metabox {
                         </div>
                         <span class="gco-subscore-value"><?php echo esc_html($analysis['subscores']['factuality']); ?></span>
                     </div>
+                    <div class="gco-subscore">
+                        <span class="gco-subscore-label"><?php esc_html_e('EEAT', 'geo-content-optimizer'); ?></span>
+                        <div class="gco-progress">
+                            <div class="gco-progress-bar <?php echo $this->get_score_class($analysis['subscores']['eeat'] ?? 0); ?>" 
+                                 style="width: <?php echo esc_attr($analysis['subscores']['eeat'] ?? 0); ?>%"></div>
+                        </div>
+                        <span class="gco-subscore-value"><?php echo esc_html($analysis['subscores']['eeat'] ?? 0); ?></span>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($analysis && !empty($analysis['ymyl']['is_ymyl'])): ?>
+                <div class="gco-ymyl-notice">
+                    <strong><?php esc_html_e('⚠️ Sujet YMYL', 'geo-content-optimizer'); ?></strong>
+                    <p class="description">
+                        <?php 
+                        printf(
+                            esc_html__('Catégories : %s', 'geo-content-optimizer'),
+                            esc_html(implode(', ', $analysis['ymyl']['categories']))
+                        );
+                        ?>
+                    </p>
                 </div>
             <?php endif; ?>
             
