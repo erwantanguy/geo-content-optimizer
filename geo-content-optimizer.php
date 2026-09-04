@@ -2,7 +2,7 @@
 /**
  * Plugin Name: GEO Content Optimizer
  * Description: Analyse et optimise le contenu pour maximiser la citabilité par les IA (ChatGPT, Claude, Perplexity...)
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Erwan Tanguy
  * Text Domain: geo-content-optimizer
  * Requires at least: 6.0
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('GCO_VERSION', '1.2.0');
+define('GCO_VERSION', '1.2.1');
 define('GCO_PATH', plugin_dir_path(__FILE__));
 define('GCO_URL', plugin_dir_url(__FILE__));
 
@@ -33,6 +33,7 @@ require_once GCO_PATH . 'includes/class-citability-scorer.php';
 require_once GCO_PATH . 'includes/class-suggestions.php';
 require_once GCO_PATH . 'includes/class-api-analyzer.php';
 require_once GCO_PATH . 'includes/class-analyzer.php';
+require_once GCO_PATH . 'includes/class-api.php';
 require_once GCO_PATH . 'includes/class-metabox.php';
 require_once GCO_PATH . 'includes/class-admin-page.php';
 

@@ -24,6 +24,20 @@ class GCO_Settings {
 
     public function __construct() {
         add_action('admin_init', [$this, 'register_settings']);
+        add_action('admin_init', [$this, 'maybe_generate_external_api_key']);
+    }
+
+    public function maybe_generate_external_api_key() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        if (isset($_GET['gco_generate_api_key']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['gco_generate_api_key'])), 'gco_generate_api_key')) {
+            $new_key = wp_generate_password(32, false, false);
+            update_option('geo_content_optimizer_api_key', $new_key);
+            wp_redirect(admin_url('admin.php?page=geo-content-optimizer-settings'));
+            exit;
+        }
     }
 
     public function register_settings() {
@@ -75,7 +89,40 @@ class GCO_Settings {
         ?>
         <div class="wrap gco-admin">
             <h1><?php esc_html_e('GEO Content Optimizer - Paramètres', 'geo-content-optimizer'); ?></h1>
-            
+
+            <div class="gco-settings-section" style="background: #f0f6fc; border-left: 4px solid #2271b1;">
+                <h2><?php esc_html_e('Clé API externe', 'geo-content-optimizer'); ?></h2>
+                <p class="description">
+                    <?php esc_html_e('Cette clé permet à des applications externes (Guide decision, dashboards...) de récupérer les scores de citabilité et EEAT via l\'API REST.', 'geo-content-optimizer'); ?>
+                </p>
+
+                <?php
+                $api_key = get_option('geo_content_optimizer_api_key', '');
+                if (empty($api_key)) {
+                    $api_key = __('Non générée', 'geo-content-optimizer');
+                }
+                ?>
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="gco_external_api_key"><?php esc_html_e('Clé API', 'geo-content-optimizer'); ?></label>
+                        </th>
+                        <td>
+                            <input type="text" id="gco_external_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" readonly>
+                            <p class="description">
+                                <?php esc_html_e('En-tête attendu : X-GEO-Content-API-Key', 'geo-content-optimizer'); ?>
+                            </p>
+                            <p>
+                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=geo-content-optimizer-settings&gco_generate_api_key=1'), 'gco_generate_api_key', 'gco_generate_api_key')); ?>" class="button">
+                                    <?php esc_html_e('Générer / Régénérer la clé', 'geo-content-optimizer'); ?>
+                                </a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
             <form method="post" action="options.php">
                 <?php settings_fields('gco_settings_group'); ?>
                 
